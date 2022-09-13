@@ -1,5 +1,5 @@
 #Ele -> El (só em maiúscula)
-#ladrán
+#ladrán ## att. tb. Entán
 #opinián
 #millán -> millón
 #dixiches
@@ -29,3 +29,6 @@ aceso  (não se pode corrigir: aceso = particípio de acender)
 #xestián (xestión)
 #advogado (avogado)
 #xuiz
+Dixiches
+almozo
+Díxote
