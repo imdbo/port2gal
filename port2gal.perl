@@ -426,8 +426,8 @@ questi?- cuesti
 -([aei])ram ron
 -(g)em e
 -(g)ens es
--([áéíóú])vel ble
--([áéíóú])veis bles
+-([áéíóú])vel bel
+-([áéíóú])veis beis
 -(a|á)va((?:s|mo(s?)|m)?) ba
 -(a|á)va((?:s|mo(s?)|m)?-)- ba
 -ámos amos
