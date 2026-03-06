@@ -5,6 +5,7 @@
 # Para usar este script desde um shell, deves respeitar a seguinte sintaxe:
 # cat  input-file  | port2gal.perl  >  output-file
 ##versão UTF-8
+## -- Otimizado para performance --
 
 use strict;
 
@@ -12,7 +13,6 @@ binmode STDIN, ':utf8';
 binmode STDOUT, ':utf8';
 binmode STDERR, ':utf8';
 use utf8;
-
 
 #print "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n";
 #print " TRANSLITERAÇÃO AUTOMÁTICA AO GALEGO DO ILG-RAG (excusas pelos erros)  \n";
@@ -27,17 +27,30 @@ my $vogalacentuada =  "\[áàéíóúÁÀÉÍÓÚâêîôûüãÃõÕ\]";
 my $symbol = "\[\?\!\¿\¡\%\&\/\(\)\+\*\"\=\.\,\;\:\]";
 my $WChar = "(\[a-zA-ZñÑáàéíóúÁÀÉÍÓÚçÇâêîôûüãÃõÕ\])";
 my $NaoChar = "(\[ \?\!\¿\¡\%\&\/\(\)\+\*\"\'\=\.\,\;\:\])";
-my $cons =  "(\[bBdDtTpPkKvVfFcCçÇzZkKlLrRnNmMpPjJxXsShHñÑ\])"; ##faltam q e g
+my $cons =  "(\[bBdDtTpPkKvVfFcCçÇzZkKlLrRnNmMpPjJxXsShHñÑ\])";
+##faltam q e g
 my $crecente =  "(ia|ie|io|ue|ua|uo|gua|guo)";
 my $decrecente = "(iu|eu|ei|oi|ou|ai|au)";
 my $w = "a-zA-ZñÑáàéíóúÁÀÉÍÓÚçÇâêîôûüãÃõÕäÄëËïÏöÖüÜ";
 
 my $GR = "|cr|br|pr|tr|dr|fr|cl|bl|fl";
-my $pronComposto = "|no-lo|no-los|no-la|no-las|vo-lo|vo-los|vo-la|vo-las|se-me|se-te|se-che|se-lle|se-lles|se-nos|se-vos";
-my $pron = "|me|te|mos|mas|mo|ma|tos|tas|to|ta|che|cho|cha|chas|chos|lo|los|o|os|la|las|a|as|lle|lles|llo|lla|llos|llas|llelo|llela|se|no|vo|nos|vos|nolo|nolos|nola|nolas|volo|volos|vola|volas|seme|sete|seche|selle|selles|senos|sevos";
 
-#my $sufixV "((?:-m|-lh|-t)?)(e?);
+# OPTIMIZATION: Convert the delimited strings to hashes for O(1) lookups
+my $pronCompostoStr = "|no-lo|no-los|no-la|no-las|vo-lo|vo-los|vo-la|vo-las|se-me|se-te|se-che|se-lle|se-lles|se-nos|se-vos";
+my $pronStr = "|me|te|mos|mas|mo|ma|tos|tas|to|ta|che|cho|cha|chas|chos|lo|los|o|os|la|las|a|as|lle|lles|llo|lla|llos|llas|llelo|llela|se|no|vo|nos|vos|nolo|nolos|nola|nolas|volo|volos|vola|volas|seme|sete|seche|selle|selles|senos|sevos";
 
+my %pronComposto = map { $_ => 1 } grep { length } split(/\|/, $pronCompostoStr);
+my %pron         = map { $_ => 1 } grep { length } split(/\|/, $pronStr);
+
+# OPTIMIZATION: Hashes for fast accent replacement
+my %add_accent = (
+    'a'=>'á', 'e'=>'é', 'i'=>'í', 'o'=>'ó', 'u'=>'ú',
+    'A'=>'Á', 'E'=>'É', 'I'=>'Í', 'O'=>'Ó', 'U'=>'Ú'
+);
+my %strip_accent = (
+    'á'=>'a', 'é'=>'e', 'í'=>'i', 'ó'=>'o', 'ú'=>'u',
+    'Á'=>'A', 'É'=>'E', 'Í'=>'I', 'Ó'=>'O', 'Ú'=>'U'
+);
 
 my @l = qw(
 água(s?) auga
@@ -151,7 +164,7 @@ hierárquico(s?) xerárquico
 ([mM])uçulmano(s?) usulmán
 ([mM])uçulmana(s?) usulmá
 ([pP])ont(o?|os?|u?)- unt
-([pP])ropriedade(s?) ropiedade
+([pP])propriedade(s?) ropiedade
 ([pP])rópri- rópi
 ([aA]p)ropri- ropi
 Pasta Cartafol
@@ -299,9 +312,9 @@ odei((?:o-|a(s?)-|am-)?) ódi
 ([pP])udé- uidé
 ((?:[pP]|[dD]esp|[iI]mp|[eE]exp||[dD]esimp|[rR]eexp|[mM]|[dD]esm))eç(|a(s?)amo(s?)|am|ais)((?:-m|-lh|-t|-ch|-v|-n|-s|-o|-a)?([eoa]?(s?))) id
 ((?:[pP]|[dD]esp|[iI]mp|[eE]exp||[dD]esimp|[rR]eexp|[mM]|[dD]esm))eço((?:-m|-lh|-t|-ch|-v|-n|-s|-o|-a)?([eoa]?(s?))) ido
-((?:[pP]|[aA]nte|[dE]e|[dD]ecom|[iI]dis|[pP]rop|[pP]os|[sS]uperp|[sS]up))ões((?:-m|-lh|-t|-ch|-v|-n|-s|-o|-a)?([eoa]?(s?))) os
-((?:[pP]|[aA]nte|[dE]e|[dD]ecom|[iI]dis|[pP]rop|[pP]os|[sS]uperp|[sS]up))õem((?:-m|-lh|-t|-ch|-v|-n|-s|-o|-a)?([eoa]?(s?))) oñen
-((?:[pP]|[aA]nte|[dE]e|[dD]ecom|[iI]dis|[pP]rop|[pP]os|[sS]uperp|[sS]up))õe((?:-m|-lh|-t|-ch|-v|-n|-s|-o|-a)?([eoa]?(s?))) on
+((?:[pP]|[aA]nte|[dE]e|[dD]ecom|[iI]dis|[pP]prop|[pP]os|[sS]uperp|[sS]up))ões((?:-m|-lh|-t|-ch|-v|-n|-s|-o|-a)?([eoa]?(s?))) os
+((?:[pP]|[aA]nte|[dE]e|[dD]ecom|[iI]dis|[pP]prop|[pP]os|[sS]uperp|[sS]up))õem((?:-m|-lh|-t|-ch|-v|-n|-s|-o|-a)?([eoa]?(s?))) oñen
+((?:[pP]|[aA]nte|[dE]e|[dD]ecom|[iI]dis|[pP]prop|[pP]os|[sS]uperp|[sS]up))õe((?:-m|-lh|-t|-ch|-v|-n|-s|-o|-a)?([eoa]?(s?))) on
 ((?:[dD]|[bB]end|[cC]ond|[cC]ontrad|[pP]re|[mM]ald|[dD]esd))izei(s?) icide
 ((?:[dD]|[bB]end|[cC]ond|[cC]ontrad|[pP]re|[mM]ald|[dD]esd))izemos icimos
 ([dD])izes((?:-m|-lh|-t|-ch|-v|-n|-s|-o|-a)?([eoa]?(s?))) is
@@ -413,8 +426,8 @@ questi?- cuesti
 -([aei])ram ron
 -(g)em e
 -(g)ens es
--([áéíóú])vel bel
--([áéíóú])veis beis
+-([áéíóú])vel ble
+-([áéíóú])veis bles
 -(a|á)va((?:s|mo(s?)|m)?) ba
 -(a|á)va((?:s|mo(s?)|m)?-)- ba
 -ámos amos
@@ -447,12 +460,24 @@ questi?- cuesti
 pós-- post
 );
 
-
+# OPTIMIZATION: Precompile the main array of regex rules before reading lines
+my @compiled_rules;
+for (my $i=0; $i < @l; $i+=2) {
+    my $a = $l[$i];
+    my $b = $l[$i+1];
+    $a =~ s/^([^\?-])/$NaoChar$1/;
+    $a =~ s/([^\?-])$/$1$NaoChar/;
+    $a =~ s/(^-|-$)/$WChar/gi;
+    $a =~ s/(^\?|\?$)/(.)/gi;
+    $a =~ s/\)\(//gi;
+    push @compiled_rules, { re => qr/$a/, repl => $b };
+}
 
 my $line;
 while ($line = <>) {
     chomp $line;
     $line = " $line ";
+    
     $line =~ s/ /  /g;
     $line =~ s/\. / \. /g;
     $line =~ s/\.\. \. / \.\.\. /g;
@@ -467,29 +492,13 @@ while ($line = <>) {
     $line =~ s/\)/ \) /g;
     $line =~ s/\"/ \" /g;
     $line =~ s/([\"\{\}\\\/\«\»\‘\’]])/ $1 /g;
+    
     ##First Part
-
-    #print STDERR "$line\n";
-
-    #trocas da lista de pares irregulares $l:
-    my $i;
-    for ($i=0;$i<$#l;$i+=2) {
-      my ($a,$b) = ($l[$i],$l[$i+1]);
-      #print STDERR "$a $b\n";
-     #$a =~ s/^([^\?-])/(\\W)$1/;
-     #$a =~ s/([^\?-])$/$1(\\W)/;
-      $a =~ s/^([^\?-])/$NaoChar$1/;
-      $a =~ s/([^\?-])$/$1$NaoChar/;
-
-      #$a =~ s/(^-|-$)/(\\w)/g;
-      $a =~ s/(^-|-$)/$WChar/gi;
-      $a =~ s/(^\?|\?$)/(.)/gi;
-      $a =~ s/\)\(//gi;
-      #print STDERR "$a $b\n";
-      $line =~ s/$a/$1$b$2/g;
-      
-
-      #print STDERR "$line\n";
+    # OPTIMIZATION: Use the precompiled rules here instead of computing them
+    foreach my $rule (@compiled_rules) {
+        my $re   = $rule->{re};
+        my $repl = $rule->{repl};
+        $line =~ s/$re/$1$repl$2/g;
     }
     
     #trocas de mais duma palavra (contracções prep+art e outros...)
@@ -501,130 +510,95 @@ while ($line = <>) {
     $line =~ s/ de  un(s?) /dun$1 /gi;
     $line =~ s/ en  unha(s?) /nunha$1 /gi;
     $line =~ s/ en  un(s?) /nun$1 /gi;
-  #  $line =~ s/(v(o)u|v(as)|v(a)i|v(amos)|v(ades)|v(an))  embora/march$2$3$4$5$6$7/gi;
-    
-
     $line =~ s/ através /a través /gi;
     $line =~ s/ (de|polo)[ ]+fato /$1 feito /gi;
-    
     $line =~ s/ (o|um|algum|este|esse|aquel)[ ]+([$w]*)?[ ]+(da)do /$1 $2 $3to /gi;
     $line =~ s/ (os|uns|alguns|estes|esses|aqueles)[ ]+([$w]*)?[ ]+(da)dos /$1 $2 $3tos /gi;
     $line =~ s/ (d|n|pol)(o|um|algum|este|esse|aquel)[ ]+([$w]*)?[ ]+(da)do /$1$2 $3 $4to /gi;
     $line =~ s/ (d|n|pol)(os|uns|alguns|estes|esses|aqueles)[ ]+([$w]*)?[ ]+(da)dos /$1$2 $3 $4tos /gi;
-
+    
     ##Son Paulo -> San Paulo
     $line =~ s/ Son[ ]+([A-ZÁÉÍÓÚ][$w]+)/ San $1/g;
     
     #trocas de grafias especiais
     $line =~ y/çàãõâêôûjÇÀÃÕÂÊÔÛJ/záaoáéóúxZÁAOÁÉÓÚX/;
-         #print STDERR "temp: $line\n";
-  
-  #troca os futuros com pronomes proclíticos: dar-lhes-emos por daremoslhes.
     
-     $line =~  s/á-(l[oa]s?)-([$w]+)/a-$1-$2/i ;
-     $line =~  s/é-(l[oa]s?)-([$w]+)/e-$1-$2/i ;
-     $line =~  s/í-(l[oa]s?)-([$w]+)/i-$1-$2/i ;     
-     $line =~  s/ó-(l[oa]s?)-([$w]+)/o-$1-$2/i ;
-     $line =~  s/ú-(l[oa]s?)-([$w]+)/u-$1-$2/i ;
-     #print STDERR "inter: temp: $line\n";
-
-     $line =~  s/-l([oa]s?)-eis/rédel-$1/gi;  
-     $line =~  s/-l([oa]s?)-íeis/riédel-$1/gi;  
-     $line =~  s/-(l[oa]s?)-(ás|emos|ias|íamos)/r$2-$1/gi;
-     $line =~  s/-l([oa]s?)-(ei|án|á|ian?)/r$2-$1/gi;   
-     
-     $line =~  s/s-l([oa]s?)/-l$1/gi;
-      
-     $line =~  s/-([$w]+)-eis/rédel-$1/gi;  
-     $line =~  s/-([$w]+)-íeis/riédel-$1/gi;  
-     $line =~  s/-([$w]+)-(ás|emos|ias|íamos)/$2-$1/gi;
-     $line =~  s/-([$w]+)-(ei|án|á|emos|ian?)/$2-$1/gi;
-
-	 #print STDERR "temp: $line\n";
-    #tira os guioes: 
-    # $line =~ s/(?<=\w)á-(?=\w{0,4}$NaoChar)/a/gi;
-   # $line =~ s/(?<=\w)-(?=\w{0,4}$NaoChar)//gi;
+    #troca os futuros com pronomes proclíticos: dar-lhes-emos por daremoslhes.
+    $line =~  s/á-(l[oa]s?)-([$w]+)/a-$1-$2/i ;
+    $line =~  s/é-(l[oa]s?)-([$w]+)/e-$1-$2/i ;
+    $line =~  s/í-(l[oa]s?)-([$w]+)/i-$1-$2/i ;     
+    $line =~  s/ó-(l[oa]s?)-([$w]+)/o-$1-$2/i ;
+    $line =~  s/ú-(l[oa]s?)-([$w]+)/u-$1-$2/i ;
+    
+    $line =~  s/-l([oa]s?)-eis/rédel-$1/gi;  
+    $line =~  s/-l([oa]s?)-íeis/riédel-$1/gi;  
+    $line =~  s/-(l[oa]s?)-(ás|emos|ias|íamos)/r$2-$1/gi;
+    $line =~  s/-l([oa]s?)-(ei|án|á|ian?)/r$2-$1/gi;   
+    $line =~  s/s-l([oa]s?)/-l$1/gi;
+    
+    $line =~  s/-([$w]+)-eis/rédel-$1/gi;  
+    $line =~  s/-([$w]+)-íeis/riédel-$1/gi;  
+    $line =~  s/-([$w]+)-(ás|emos|ias|íamos)/$2-$1/gi;
+    $line =~  s/-([$w]+)-(ei|án|á|emos|ian?)/$2-$1/gi;
 
     $line =~ s/  / /g;
     $line =~ s/^ //g;
     $line =~ s/ $//g;
-    #print STDERR "$line\n" ;
 
     #regras de acentuação:
     my @listPals;
     my $p;
     (@listPals) = split (" ", $line);
     $line="";
-
+    
     foreach $p (@listPals) {
-
+       
+       # OPTIMIZATION: Appended the `/o` flag to invariant regexes inside this hot loop
        ##comia, tio, ...
-       if ( ($p !~ /$vogalacentuada/) && 
-           ( ($p =~ /$cons(i[aoe])([ns]?)($symbol?)$/i) ||
-             ($p =~ /[qg](ui[aoe])([ns]?)($symbol?)$/i) ) )   {
+       if ( ($p !~ /$vogalacentuada/o) && 
+           ( ($p =~ /$cons(i[aoe])([ns]?)($symbol?)$/io) ||
+             ($p =~ /[qg](ui[aoe])([ns]?)($symbol?)$/io) ) )   {
 
            $p =~ s/i([aoe])([ns]?)($symbol?)$/í$1$2$3/i;
-
-      }
+       }
        ##sua, possuo, crua, ...
-       elsif (($p !~ /$vogalacentuada/) && 
-           ($p =~ /$cons(u[aoe])([ns]?)($symbol?)$/i) ) {
+       elsif (($p !~ /$vogalacentuada/o) && 
+           ($p =~ /$cons(u[aoe])([ns]?)($symbol?)$/io) ) {
 
            $p =~ s/u([aoe])([ns]?)($symbol?)$/ú$1$2$3/i
 
       }
-
        ## aqui/latim/tabu, ...
-       elsif (($p !~ /$vogalacentuada/) && 
+       elsif (($p !~ /$vogalacentuada/o) && 
            (length($p) >= 4) && 
-           ($p !~ /(tui|$decrecente)(s?)($symbol?)$/i) &&
-           ($p !~ /^($GR)[aeiou]([nmsx]?)(s?)($symbol?)$/i) ) {
+           ($p !~ /(tui|$decrecente)(s?)($symbol?)$/io) &&
+           ($p !~ /^($GR)[aeiou]([nmsx]?)(s?)($symbol?)$/io) ) {
 
            $p =~ s/i([nmsx]?)($symbol?)$/í$1$2/i;
            $p =~ s/u([nmsx]?)($symbol?)$/ú$1$2/i;
-           
-
       }
-       
        ##táxi/júri/bônus
-       elsif (($p =~ /$vogalacentuada/) && 
+       elsif (($p =~ /$vogalacentuada/o) && 
            (length($p) >= 4) && 
-           ($p =~ /$cons(i|u)(s?)($symbol?)$/i) ) {
-          
-	   
+           ($p =~ /$cons(i|u)(s?)($symbol?)$/io) ) {
            $p =~ y/áéíóú/aeiou/;
        }
-
-
         ##/tênue/régua (ditongo crecente...)
-       elsif ( ($p =~ /$vogalacentuada/) && 
-               ( ($p =~ /$cons($crecente)([sn]?)($symbol?)$/i) ||
-                 ($p =~ /[qg]ui[ao]([sn]?)($symbol?)$/i) ) ) {
-
+       elsif ( ($p =~ /$vogalacentuada/o) && 
+               ( ($p =~ /$cons($crecente)([sn]?)($symbol?)$/io) ||
+                 ($p =~ /[qg]ui[ao]([sn]?)($symbol?)$/io) ) ) {
             $p =~ y/áéíóú/aeiou/;
-
-      }
-
+       }
         ##/espanhóis/caracóis
-      elsif ($p =~ /óis($symbol?)$/i) {
-          
+       elsif ($p =~ /óis($symbol?)$/i) {
            $p =~ s/óis($symbol?)$/ois$1/i;
-           
-
-      } 
-
+       } 
         ##/sair/constituir
-      if (($p !~ /$vogalacentuada/) 
-           && ($p =~ /$cons(ui|ai|ei)([rln])($symbol?)$/i)  ) {
-          
+       if (($p !~ /$vogalacentuada/o) 
+           && ($p =~ /$cons(ui|ai|ei)([rln])($symbol?)$/io)  ) {
            $p =~ s/i([rln])($symbol?)$/í$1$2/i;
            $p =~ s/u([rln])($symbol?)$/ú$1$2/i;
-	   
-
-      }
-
-     
-
+       }
 
        my $des="";
        my $raiz="";
@@ -632,126 +606,100 @@ while ($line = <>) {
        my $first="";
        my $last="";
 
- ##pronomes compostos: no-las, se-me
-       if (($p =~ /[$w]+\-[$w]+\-[$w]+/i) && ($p !~ /[0-9]+\-[0-9]+\-[0-9]+/i) ) {
-	   ($raiz, $des) = ($p =~ /([$w]+)-([^ ]+)/i);
-           #print STDERR "$raiz - $des\n";
-           if ( ($raiz ne "") && ($des ne "")) {	    
-
-               if (pertence ($des, $pronComposto)) {
+       ##pronomes compostos: no-las, se-me
+       if (($p =~ /[$w]+\-[$w]+\-[$w]+/io) && ($p !~ /[0-9]+\-[0-9]+\-[0-9]+/i) ) {
+           ($raiz, $des) = ($p =~ /([$w]+)-([^ ]+)/io);
+           if ( ($raiz ne "") && ($des ne "")) {        
+               # OPTIMIZATION: Replaced index lookup with hash existence check
+               if (exists $pronComposto{$des} || exists $pronComposto{lc($des)}) {
                  $des =~ s/-//i;
                  $p = $raiz . "-" . $des;
-	       } 
+               } 
             }  
        }
-       elsif (pertence ($p, $pronComposto )) {
+       elsif (exists $pronComposto{$p} || exists $pronComposto{lc($p)}) {
              $p  =~ s/-//;
        }
 
-
         ## acentos de verbos com pronomes: chamo-me > chámome
-       if (($p =~ /[$w]+\-[$w]+$/i) && ($p !~ /[0-9]+\-[0-9]+/i) && ($p !~ /[$w]+\-[$w]+\-[$w]+/i)) {
-	   ($raiz, $des) = ($p =~ /([$w]+)-([$w]+)/i);
-           #print STDERR "$raiz - $des\n";
+       if (($p =~ /[$w]+\-[$w]+$/io) && ($p !~ /[0-9]+\-[0-9]+/i) && ($p !~ /[$w]+\-[$w]+\-[$w]+/io)) {
+           ($raiz, $des) = ($p =~ /([$w]+)-([$w]+)/io);
 
           ##comiches + o/os
           if ( ($raiz =~ /s$/) && ($des =~ /^[ao]/)) {
-              ($raiz =~ s/s$//); 
+              ($raiz =~ s/s$//);
               ($des =~ s/([oa]s?)/l$1/);
            } 
-           #print STDERR "2: $raiz - $des\n";
+           
            if ( ($raiz ne "") && ($des ne "")) {
-              ($des =~ s/llos/llelo/i); 
+              ($des =~ s/llos/llelo/i);
               ($des =~ s/llas/llela/i); 
 
+             if (exists $pron{$des} || exists $pron{lc($des)}) {
 
-
-             if (pertence ($des ,$pron)) {
-
-
-              if ( ($raiz !~ /$vogalacentuada/) && ($raiz =~ /[$w]*[$consAll][$vogal][$consAll]+[$vogal]([ns]?)$/i) ) {     
-                   #print STDERR "OKKK\n";   
-                   ($first, $v, $last) = ($raiz =~ /([$w]*)([$vogal])([$consAll]+[$vogal]([ns]?))$/i);
+              if ( ($raiz !~ /$vogalacentuada/o) && ($raiz =~ /[$w]*[$consAll][$vogal][$consAll]+[$vogal]([ns]?)$/io) ) {     
+                   ($first, $v, $last) = ($raiz =~ /([$w]*)([$vogal])([$consAll]+[$vogal]([ns]?))$/io);
 
                    if ($v ne "") {
-		       $v = PorAcento($v);
+                       $v = PorAcento($v);
                        $p = $first . $v .  $last . $des;
-                       #print STDERR "regra1: $v - $raiz\n";
-                    }
+                   }
                }
-              elsif ( ($raiz !~ /$vogalacentuada/) && ($raiz =~ /([$w]*)${decrecente}[$w]*[$vogal]([ns]?)$/i) ) {     
-                   #print STDERR "OKKK\n";   
-                   ($first, $v, $last) = ($raiz =~ /([$w]*)([$vogal])([$vogal][$w]*[$vogal]([ns]?))$/i);
+              elsif ( ($raiz !~ /$vogalacentuada/o) && ($raiz =~ /([$w]*)${decrecente}[$w]*[$vogal]([ns]?)$/io) ) {     
+                   ($first, $v, $last) = ($raiz =~ /([$w]*)([$vogal])([$vogal][$w]*[$vogal]([ns]?))$/io);
 
                    if ($v ne "") {
-		       $v = PorAcento($v);
+                       $v = PorAcento($v);
                        $p = $first . $v .  $last . $des;
-                       #print STDERR "regra1: $v - $raiz\n";
-                    }
+                   }
                }
-              elsif ( ($raiz !~ /$vogalacentuada/) && ($raiz =~ /([^ ]+)[qg]u[$vogal]$/i) ) {        
-                   ($first, $v, $last) = ($raiz =~ /([^ ]*)([$vogal])(([$consAll]?)[qg]u[$vogal])$/i);
-
+              elsif ( ($raiz !~ /$vogalacentuada/o) && ($raiz =~ /([^ ]+)[qg]u[$vogal]$/io) ) {        
+                   ($first, $v, $last) = ($raiz =~ /([^ ]*)([$vogal])(([$consAll]?)[qg]u[$vogal])$/io);
                    if ($v ne "") {
-		       $v = PorAcento($v);
-                       $p = $first . $v .  $last . $des;
-                       #print STDERR "regra1b: $v\n";
-                    }
-               }
-
-              elsif ( ($raiz !~ /$vogalacentuada/) && ($raiz =~ /[$vogal][$vogal]$/i) &&
-                      ($raiz !~ /$decrecente$/) && ($raiz !~ /oio|aio$/) &&
-                       ($raiz !~ /[qg]u[$vogal]$/i) )  {        
-                     ($first, $v, $last) = ($raiz =~ /([^ ]*)([$vogal])([$vogal])$/i);
-
-                   if ($v ne "") {
-		       $v = PorAcento($v);
-                       $p = $first . $v .  $last . $des;
-                       #print STDERR "regra1b: $v\n";
-                    }
-               }
-
-
-
-	      elsif  ( ($raiz =~ /$vogalacentuada([ns]?)$/) && ($raiz !~ /^é|^dá([ns]?)$/i) ) {
-                   ($first, $v, $last) = ($raiz =~ /([$w]*)($vogalacentuada)([ns]?)$/i);
-                   if ($v ne "")  {
-		       $v = TirarAcento($v);
+                       $v = PorAcento($v);
                        $p = $first . $v . $last . $des;
-                       #print STDERR "$first  $v  $last\n";
                     }
-	     }
-             elsif ($raiz =~ /$vogalacentuada/) {
+               }
+
+              elsif ( ($raiz !~ /$vogalacentuada/o) && ($raiz =~ /[$vogal][$vogal]$/io) &&
+                      ($raiz !~ /$decrecente$/o) && ($raiz !~ /oio|aio$/) &&
+                       ($raiz !~ /[qg]u[$vogal]$/io) 
+                 )  {        
+                     ($first, $v, $last) = ($raiz =~ /([^ ]*)([$vogal])([$vogal])$/io);
+                     if ($v ne "") {
+                       $v = PorAcento($v);
+                       $p = $first . $v . $last . $des;
+                    }
+               }
+
+              elsif  ( ($raiz =~ /$vogalacentuada([ns]?)$/o) && ($raiz !~ /^é|^dá([ns]?)$/i) ) {
+                   ($first, $v, $last) = ($raiz =~ /([$w]*)($vogalacentuada)([ns]?)$/io);
+                   if ($v ne "")  {
+                       $v = TirarAcento($v);
+                       $p = $first . $v . $last . $des;
+                   }
+             }
+             elsif ($raiz =~ /$vogalacentuada/o) {
                       $p = $raiz . $des;
-                      #print STDERR "regra3\n";
-	     
              }
              ##raiz acaba em ditongo crecente : por acento na primeira vogal
-	     elsif ( ($raiz =~ /$crecente[ns]?$/) && ($raiz !~ /que$|gue$/i) &&
+             elsif ( ($raiz =~ /$crecente[ns]?$/o) && ($raiz !~ /que$|gue$/i) &&
                      ($raiz !~ /oio|aio$/) ) {
-                ($raiz =~ s/([$w]+)i([aeo][ns]?$)/$1í$2/i);
-                ($raiz =~ s/([$w]+)u([aeo][ns]?$)/$1ú$2/i);
+                ($raiz =~ s/([$w]+)i([aeo][ns]?$)/$1í$2/io);
+                ($raiz =~ s/([$w]+)u([aeo][ns]?$)/$1ú$2/io);
                  $p = $raiz . $des;
-                 #print STDERR "regra IA\n";
-	    }
-            elsif ( ($raiz =~ /$decrecente$/) &&  ($des =~ /^[oa]/i) ){
-                      $p = $raiz . "n" . $des;
-                      #print STDERR "regra3\n";
-	     
              }
-            
+            elsif ( ($raiz =~ /$decrecente$/o) &&  ($des =~ /^[oa]/i) ){
+                      $p = $raiz . "n" . $des;
+             }
             else {
-		  $p = $raiz . $des;
-		 # print STDERR "$p..\n";
-	      }
+                  $p = $raiz . $des;
+              }
            }
-	}
+        }
        }
 
-
-
     ## corrigir acentos verbos:
-
       $p =~ s/á(bamos|bades|bamol|badel)/a$1/;
       $p =~ s/á(ramos|rades|ramol|radel)/a$1/;
       $p =~ s/á(semos|sedes|semol|sedel)/a$1/;
@@ -764,9 +712,7 @@ while ($line = <>) {
       $p =~ s/í(ñamos|ñades|ñamol|ñadel)/i$1/;
       $p =~ s/ó(semos|sedes|semol|sedel)/o$1/;
       
-  
-     ## Metacorrecções:
-
+      ## Metacorrecções:
       $p =~ s/^([cC])ontrache/$1ontraste/i;
       $p =~ s/^([nNdDlL])iches$/$1este/i;
       $p =~ s/^([eE])xiches$/$1xiste/i;
@@ -781,7 +727,8 @@ while ($line = <>) {
       $p =~ s/^Órgán(s?)/Órgano$1/i;
       $p =~ s/^([pP])oída/$1oida/i;
       $p =~ s/bolución$/volución/i;
-   ##reíntrodr
+      
+      ##reíntrodr
       $p =~ s/^([Rr])eín$/$1ein/i;
       $p =~ s/^([qQ])ueiron$/$1ueiran/i;
       $p =~ s/^([fF])iron$/$1iran/i;
@@ -803,18 +750,10 @@ while ($line = <>) {
       $p =~ s/([aA])probeit/$1proveit/i;
       $p =~ s/([fF])ixiches/$1ixeches/i;
       
-
-   ## problemas sintaticos : eu quixo ; son paulo....
-
-    ### so para textos de INFO. 
-      #$p =~ s/^clique/prema/;
-      #$p =~ s/^Clique/Prema/;
-      #$p =~ s/^([cC])élula(s?)/$1ela$2/;
-
       $line .= $p . " ";
     }
 
-my $SpecialChar = "\?\!\¿\¡\%\&\/\(\)\\\+\*\'\=\.\,\;\:";
+    my $SpecialChar = "\?\!\¿\¡\%\&\/\(\)\\\+\*\'\=\.\,\;\:";
     
     $line =~ s/ \. /\. /g;
     $line =~ s/ \; /\; /g;
@@ -826,84 +765,19 @@ my $SpecialChar = "\?\!\¿\¡\%\&\/\(\)\\\+\*\'\=\.\,\;\:";
     $line =~ s/\( /\(/g;
     $line =~ s/ \) /\) /g;
            
-    #$line =~ s/\" ([$w]+[$SpecialChar]*) \"/\"$1\"/g;
-   # $line =~ s/ ([\]\)\"])($SpecialChar)/$1$2/g;
-   
     $line =~ s/\" ([\w ]+) \"/\"$1\"/g;
- #colocar esta na web: 
- #$line =~ s/\" ([$w ]+) \"/\"$1\"/g;
     $line =~ s/ ([\]\)\"])([\W])/$1$2/g;
 
-   ##Second Part
-    
+    ##Second Part
     print "$line\n";
 }
 
-
+# OPTIMIZATION: Much faster hash lookup
 sub PorAcento {
-    my $result;
-    my $x;
-
-    ($x) = $_[0];
-    
-    
-    if ($x eq "a") {$result = "á"};
-    if ($x eq "e") {$result = "é"};
-    if ($x eq "i") {$result = "í"};
-    if ($x eq "o") {$result = "ó"};
-    if ($x eq "u") {$result = "ú"};
-    if ($x eq "A") {$result = "Á"};
-    if ($x eq "E") {$result = "É"};
-    if ($x eq "I") {$result = "Í"};
-    if ($x eq "O") {$result = "Ó"};
-    if ($x eq "U") {$result = "Ú"};
-    return $result;
-
+    return $add_accent{$_[0]} || $_[0];
 }
 
 sub TirarAcento {
-    my $result;
-    my $x;
-
-    ($x) = $_[0];
-    
-    
-    if ($x eq "á") {$result = "a"};
-    if ($x eq "é") {$result = "e"};
-    if ($x eq "í") {$result = "i"};
-    if ($x eq "ó") {$result = "o"};
-    if ($x eq "ú") {$result = "u"};
-    if ($x eq "Á") {$result = "A"};
-    if ($x eq "É") {$result = "E"};
-    if ($x eq "Í") {$result = "I"};
-    if ($x eq "Ó") {$result = "O"};
-    if ($x eq "Ú") {$result = "U"};
-    return $result;
-
+    return $strip_accent{$_[0]} || $_[0];
 }
-
-
-sub pertence {
-    my $subcadeia;
-    my $cadeia;
-    my $temp;
-
-    ($subcadeia) = $_[0];
-    ($cadeia) = $_[1];
-
-    $temp = "|" . $subcadeia . "|";
-    if (index ($cadeia, $temp) ==-1) {
-        return 0;
-    }
-    else {
-        return 1;
-    }
-}
-
-
-
-
-
-
-
 
